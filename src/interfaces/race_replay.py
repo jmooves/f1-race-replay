@@ -13,10 +13,9 @@ from src.ui_components import (
 )
 
 
-# Kept these as "default" starting sizes, but they are no longer hard limits
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1200
-SCREEN_TITLE = "F1 Replay"
+SCREEN_TITLE = "F1 Race Replay"
 
 class F1RaceReplayWindow(arcade.Window):
     def __init__(self, frames, track_statuses, example_lap, drivers, title,
