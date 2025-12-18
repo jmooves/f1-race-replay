@@ -688,7 +688,7 @@ class QualifyingReplay(arcade.Window):
         self.qualifying_segment_selector_modal.draw(self)
         
         # Show race controls only when telemetry is loaded (driver + session selected)
-        if self.chart_active and self.loaded_telemetry:
+        if self.chart_active and self.loaded_telemetry and self.frame_index < self.n_frames:
             self.race_controls_comp.draw(self)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
@@ -748,9 +748,32 @@ class QualifyingReplay(arcade.Window):
 
         # Fallback: let the leaderboard handle the click (select drivers)
         self.leaderboard.on_mouse_press(self, x, y, button, modifiers)
-        self.race_controls_comp.on_mouse_press(self, x, y, button, modifiers)
+        
+        # Only allow race controls interaction if lap is not complete
+        if not self.is_lap_complete():
+            self.race_controls_comp.on_mouse_press(self, x, y, button, modifiers)
+
+    def is_lap_complete(self):
+        """Check if the current lap has finished playing."""
+        return self.chart_active and self.n_frames > 0 and self.frame_index >= self.n_frames - 1
 
     def on_key_press(self, symbol: int, modifiers: int):
+        # Allow only restart (R) and comparison toggle (C) when lap is complete
+        if symbol == arcade.key.R:
+            self.frame_index = 0
+            self.play_time = self.play_start_t
+            self.playback_speed = 1.0
+            self.paused = True
+            self.race_controls_comp.flash_button('rewind')
+            return
+        elif symbol == arcade.key.C:
+            # Toggle the ability to see the comparison driver's telemetry
+            self.show_comparison_telemetry = not self.show_comparison_telemetry
+            return
+        
+        # Disable other controls when lap is complete
+        if self.is_lap_complete():
+            return
         if symbol == arcade.key.SPACE:
             self.paused = not self.paused
             self.race_controls_comp.flash_button('play_pause')
@@ -780,15 +803,6 @@ class QualifyingReplay(arcade.Window):
         elif symbol == arcade.key.KEY_4:
             self.playback_speed = 4.0
             self.race_controls_comp.flash_button('speed_increase')
-        elif symbol == arcade.key.R:
-            self.frame_index = 0
-            self.play_time = self.play_start_t
-            self.playback_speed = 1.0
-            self.paused = True
-            self.race_controls_comp.flash_button('rewind')
-        elif symbol == arcade.key.C:
-            # Toggle the ability to see the comparison driver's telemetry
-            self.show_comparison_telemetry = not self.show_comparison_telemetry
 
     def load_driver_telemetry(self, driver_code: str, segment_name: str):
 
@@ -924,6 +938,7 @@ class QualifyingReplay(arcade.Window):
         if not self.chart_active or self.loaded_telemetry is None:
             return
         if self.paused:
+            self.race_controls_comp.on_update(delta_time)
             return
         self.race_controls_comp.on_update(delta_time)
         # advance play_time by delta_time scaled by playback_speed
@@ -934,9 +949,17 @@ class QualifyingReplay(arcade.Window):
             clamped = min(max(self.play_time, float(self._times[0])), float(self._times[-1]))
             idx = int(np.searchsorted(self._times, clamped, side="right") - 1)
             self.frame_index = max(0, min(idx, len(self._times) - 1))
+
+            # Auto-pause when lap completes to prevent errors
+            if self.frame_index >= self.n_frames - 1:
+                self.paused = True
         else:
             # fallback: step frame index at FPS if no timestamps available
             self.frame_index = int(min(self.n_frames - 1, self.frame_index + int(round(delta_time * FPS * self.playback_speed))))
+
+            # Auto-pause when lap completes to prevent errors
+            if self.frame_index >= self.n_frames - 1:
+                self.paused = True
 
 def run_qualifying_replay(session, data, title="Qualifying Results"):
     window = QualifyingReplay(session=session, data=data, title=title)
