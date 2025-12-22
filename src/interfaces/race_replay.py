@@ -21,7 +21,7 @@ SCREEN_TITLE = "F1 Race Replay"
 class F1RaceReplayWindow(arcade.Window):
     def __init__(self, frames, track_statuses, example_lap, drivers, title,
                  playback_speed=1.0, driver_colors=None, circuit_rotation=0.0,
-                 left_ui_margin=340, right_ui_margin=260, total_laps=None):
+                 left_ui_margin=340, right_ui_margin=260, total_laps=None, visible_hud=True):
         # Set resizable to True so the user can adjust mid-sim
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, title, resizable=True)
 
@@ -35,8 +35,7 @@ class F1RaceReplayWindow(arcade.Window):
         self.paused = False
         self.total_laps = total_laps
         self.has_weather = any("weather" in frame for frame in frames) if frames else False
-        self.visible_hud = True # If it displays lap and time with track status
-        self.visible_track = True # If it displays the track (or only the racers' dots)
+        self.visible_hud = visible_hud # If it displays HUD or not (leaderboard, controls, weather, etc)
 
         # Rotation (degrees) to apply to the whole circuit around its centre
         self.circuit_rotation = circuit_rotation
@@ -49,9 +48,9 @@ class F1RaceReplayWindow(arcade.Window):
         self.toggle_drs_zones = True 
         # UI components
         leaderboard_x = max(20, self.width - self.right_ui_margin + 12)
-        self.leaderboard_comp = LeaderboardComponent(x=leaderboard_x, width=240)
-        self.weather_comp = WeatherComponent(left=20, top_offset=170)
-        self.legend_comp = LegendComponent(x=max(12, self.left_ui_margin - 320))
+        self.leaderboard_comp = LeaderboardComponent(x=leaderboard_x, width=240, visible=visible_hud)
+        self.weather_comp = WeatherComponent(left=20, top_offset=170, visible=visible_hud)
+        self.legend_comp = LegendComponent(x=max(12, self.left_ui_margin - 320), visible=visible_hud)
         self.driver_info_comp = DriverInfoComponent(left=20, width=300)
         
         # Progress bar component with race event markers
@@ -66,7 +65,8 @@ class F1RaceReplayWindow(arcade.Window):
         # Race control buttons component
         self.race_controls_comp = RaceControlsComponent(
             center_x=self.width // 2,
-            center_y=100
+            center_y=100,
+            visible = visible_hud
         )
         
         # Extract race events for the progress bar
@@ -121,32 +121,6 @@ class F1RaceReplayWindow(arcade.Window):
         # Selection & hit-testing state for leaderboard
         self.selected_driver = None
         self.leaderboard_rects = []  # list of tuples: (code, left, bottom, right, top)
-
-    def _toogle_hud_visibility(self):
-        """
-        Toggle the visibility of the HUD
-        """
-        self.visible_hud = not self.visible_hud
-        return self.visible_hud
-    
-    def _set_hud_visible(self):
-        """
-        Sets the HUD visible to True
-        """
-        self.visible_hud = True
-    
-    def _toogle_track_visibility(self):
-        """
-        Toggle the visibility of the HUD
-        """
-        self.visible_track = not self.visible_track
-        return self.visible_track
-    
-    def _set_track_visible(self):
-        """
-        Sets the HUD visible to True
-        """
-        self.visible_track = True
 
     def _interpolate_points(self, xs, ys, interp_points=2000):
         t_old = np.linspace(0, 1, len(xs))
@@ -318,11 +292,10 @@ class F1RaceReplayWindow(arcade.Window):
         elif current_track_status == "6" or current_track_status == "7":
             track_color = STATUS_COLORS.get("VSC")
             
-        if self.visible_track:
-            if len(self.screen_inner_points) > 1:
-                arcade.draw_line_strip(self.screen_inner_points, track_color, 4)
-            if len(self.screen_outer_points) > 1:
-                arcade.draw_line_strip(self.screen_outer_points, track_color, 4)
+        if len(self.screen_inner_points) > 1:
+            arcade.draw_line_strip(self.screen_inner_points, track_color, 4)
+        if len(self.screen_outer_points) > 1:
+            arcade.draw_line_strip(self.screen_outer_points, track_color, 4)
         
         # 2.5 Draw DRS Zones (green segments on outer track edge)
         if hasattr(self, 'drs_zones') and self.drs_zones and self.toggle_drs_zones:
@@ -341,7 +314,7 @@ class F1RaceReplayWindow(arcade.Window):
                     drs_outer_points.append((sx, sy))
                 
                 # Draw the DRS zone segment
-                if self.visible_track and len(drs_outer_points) > 1:
+                if len(drs_outer_points) > 1:
                     arcade.draw_line_strip(drs_outer_points, drs_color, 6)
 
         # 3. Draw Cars
@@ -501,25 +474,6 @@ class F1RaceReplayWindow(arcade.Window):
             self.toggle_drs_zones = not self.toggle_drs_zones
         elif symbol == arcade.key.B:
             self.progress_bar_comp.toggle_visibility() # toggle progress bar visibility
-        elif symbol == arcade.key.H and modifiers & arcade.key.MOD_CTRL:
-                self._toogle_hud_visibility() # toogle HUD visibility
-        elif symbol == arcade.key.C and modifiers & arcade.key.MOD_CTRL:
-            self.race_controls_comp.toggle_visibility() # toggle controls visibility
-        elif symbol == arcade.key.W and modifiers & arcade.key.MOD_CTRL:
-            self.weather_comp.toggle_visibility() # toggle weather information visibility
-        elif symbol == arcade.key.L and modifiers & arcade.key.MOD_CTRL:
-            self.leaderboard_comp.toggle_visibility() # toggle leaderboard panel visibility
-        elif symbol == arcade.key.G and modifiers & arcade.key.MOD_CTRL:
-            self.legend_comp.toggle_visibility() # toggle legend visibility
-        elif symbol == arcade.key.T and modifiers & arcade.key.MOD_CTRL:
-            self._toogle_track_visibility() # toggle track visibility
-        elif symbol == arcade.key.ESCAPE: # Sets everything to visible
-            self._set_hud_visible()
-            self.race_controls_comp.set_visible()
-            self.weather_comp.set_visible()
-            self.leaderboard_comp.set_visible()
-            self.legend_comp.set_visible()
-            self._set_track_visible()
 
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
         # forward to components; stop at first that handled it

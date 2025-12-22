@@ -22,11 +22,11 @@ class BaseComponent:
     def on_mouse_press(self, window, x: float, y: float, button: int, modifiers: int) -> bool: return False
 
 class LegendComponent(BaseComponent):
-    def __init__(self, x: int = 20, y: int = 300): # Increased y to 350 to fit all lines
+    def __init__(self, x: int = 20, y: int = 300, visible=True): # Increased y to 350 to fit all lines
         self.x = x
         self.y = y
         self._control_icons_textures = {}
-        self._visible = True
+        self._visible = visible
         # Load control icons from images/icons folder (all files)
         icons_folder = os.path.join("images", "controls")
         if os.path.exists(icons_folder):
@@ -43,10 +43,6 @@ class LegendComponent(BaseComponent):
             ("[R]       Restart"),
             ("[D]       Toggle DRS Zones"),
             ("[B]       Toggle Progress Bar"),
-            ("[Shift + Click] Select Multiple Drivers"),
-            ("[Ctrl+key] Toggle visibility:"),
-            ("      H HUD · C Controls · W Weather · L Board · G Legend · T Track"),
-            ("[ESC] Show All"),
         ]
     
     @property
@@ -116,14 +112,14 @@ class LegendComponent(BaseComponent):
             ).draw()
 
 class WeatherComponent(BaseComponent):
-    def __init__(self, left=20, width=280, height=130, top_offset=170):
+    def __init__(self, left=20, width=280, height=130, top_offset=170, visible=True):
         self.left = left
         self.width = width
         self.height = height
         self.top_offset = top_offset
         self.info = None
         self._weather_icon_textures = {}
-        self._visible: bool = True
+        self._visible: bool = visible
         # Load weather icons from images/weather folder (all files)
         weather_folder = os.path.join("images", "weather")
         if os.path.exists(weather_folder):
@@ -204,7 +200,7 @@ class WeatherComponent(BaseComponent):
         window.weather_bottom = last_y - 20
 
 class LeaderboardComponent(BaseComponent):
-    def __init__(self, x: int, right_margin: int = 260, width: int = 240):
+    def __init__(self, x: int, right_margin: int = 260, width: int = 240, visible=True):
         self.x = x
         self.width = width
         self.entries = []  # list of tuples (code, color, pos, progress_m)
@@ -212,7 +208,7 @@ class LeaderboardComponent(BaseComponent):
         self.selected = []  # Changed to list for multiple selection
         self.row_height = 25
         self._tyre_textures = {}
-        self._visible: bool = True
+        self._visible: bool = visible
         # Import the tyre textures from the images/tyres folder (all files)
         tyres_folder = os.path.join("images", "tyres")
         if os.path.exists(tyres_folder):
@@ -1095,7 +1091,7 @@ class RaceControlsComponent(BaseComponent):
     - Play/Pause button (center)
     - Forward button (right)
     """
-    def __init__(self, center_x: int = 100, center_y: int = 60, button_size: int = 40):
+    def __init__(self, center_x: int = 100, center_y: int = 60, button_size: int = 40, visible=True):
         self.center_x = center_x
         self.center_y = center_y
         self.button_size = button_size
@@ -1103,7 +1099,7 @@ class RaceControlsComponent(BaseComponent):
         self.speed_container_offset = 200
         self._hide_speed_text = False
         self._control_textures = {}
-        self._visible = True
+        self._visible = visible
         
         # Button rectangles for hit testing
         self.rewind_rect = None
