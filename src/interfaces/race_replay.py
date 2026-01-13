@@ -104,6 +104,23 @@ class F1RaceReplayWindow(arcade.Window):
         self._ref_xs = np.array([p[0] for p in ref_points])
         self._ref_ys = np.array([p[1] for p in ref_points])
 
+        # Calculate normals for the reference line
+        dx = np.gradient(self._ref_xs)
+        dy = np.gradient(self._ref_ys)
+        norm = np.sqrt(dx**2 + dy**2)
+        norm[norm == 0] = 1.0
+        self._ref_nx = -dy / norm
+        self._ref_ny = dx / norm
+
+        # Determine track winding using the shoelace formula to ensure normals point outwards.
+        # A positive area indicates counter-clockwise winding (normals point Left=Inside, so we flip).
+        # A negative area indicates clockwise winding (normals point Left=Outside, so we keep).
+        signed_area = np.sum(self._ref_xs[:-1] * self._ref_ys[1:] - self._ref_xs[1:] * self._ref_ys[:-1])
+        signed_area += (self._ref_xs[-1] * self._ref_ys[0] - self._ref_xs[0] * self._ref_ys[-1])
+        if signed_area > 0:
+            self._ref_nx = -self._ref_nx
+            self._ref_ny = -self._ref_ny
+
         # cumulative distances along the reference polyline (metres)
         diffs = np.sqrt(np.diff(self._ref_xs)**2 + np.diff(self._ref_ys)**2)
         self._ref_seg_len = diffs
@@ -348,11 +365,6 @@ class F1RaceReplayWindow(arcade.Window):
         # 3. Draw Cars
         frame = self.frames[idx]
         
-        # Calculate map center for dynamic label positioning
-        world_cx = (self.x_min + self.x_max) / 2
-        world_cy = (self.y_min + self.y_max) / 2
-        map_cx, map_cy = self.world_to_screen(world_cx, world_cy)
-
         # Get selected drivers list safely
         selected_drivers = getattr(self, "selected_drivers", [])
         if not selected_drivers and getattr(self, "selected_driver", None):
@@ -365,21 +377,31 @@ class F1RaceReplayWindow(arcade.Window):
             is_selected = code in selected_drivers
             
             if self.show_driver_labels or is_selected:
-                # Calculate direction from map center to driver
-                dx = sx - map_cx
-                dy = sy - map_cy
-                dist = (dx*dx + dy*dy)**0.5
+                # Find closest point index on reference track
+                r_dx = self._ref_xs - pos["x"]
+                r_dy = self._ref_ys - pos["y"]
+                idx = int(np.argmin(r_dx*r_dx + r_dy*r_dy))
+                
+                # Get normal vector in world space
+                nx = self._ref_nx[idx]
+                ny = self._ref_ny[idx]
+                
+                # Rotate normal to screen space
+                if self._rot_rad:
+                    snx = nx * self._cos_rot - ny * self._sin_rot
+                    sny = nx * self._sin_rot + ny * self._cos_rot
+                else:
+                    snx, sny = nx, ny
                 
                 offset_dist = 45 if i % 2 == 0 else 75
                 
-                off_x = (dx / dist) * offset_dist if dist > 0 else offset_dist
-                off_y = (dy / dist) * offset_dist if dist > 0 else 0
+                lx = sx + snx * offset_dist
+                ly = sy + sny * offset_dist
                 
-                lx, ly = sx + off_x, sy + off_y
                 arcade.draw_line(sx, sy, lx, ly, color, 1)
                 
-                anchor_x = "left" if off_x >= 0 else "right"
-                text_padding = 3 if off_x >= 0 else -3
+                anchor_x = "left" if snx >= 0 else "right"
+                text_padding = 3 if snx >= 0 else -3
                 arcade.draw_text(code, lx + text_padding, ly, color, 10, anchor_x=anchor_x, anchor_y="center", bold=True)
 
             arcade.draw_circle_filled(sx, sy, 6, color)
